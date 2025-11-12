@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票数据平台</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .card { margin-bottom: 20px; }
+        .chart-container { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .loading { text-align: center; padding: 20px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">股票数据平台</a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- 状态卡片 -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">平台状态</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="status-info" class="loading">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据更新 -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">数据更新</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="update-form">
+                            <div class="mb-3">
+                                <label for="start-date" class="form-label">开始日期</label>
+                                <input type="date" class="form-control" id="start-date" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="end-date" class="form-label">结束日期</label>
+                                <input type="date" class="form-control" id="end-date" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">更新数据</button>
+                        </form>
+                        <div id="update-result" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">砸盘系数计算</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="smash-form">
+                            <div class="mb-3">
+                                <label for="smash-start-date" class="form-label">开始日期</label>
+                                <input type="date" class="form-control" id="smash-start-date">
+                            </div>
+                            <div class="mb-3">
+                                <label for="smash-end-date" class="form-label">结束日期</label>
+                                <input type="date" class="form-control" id="smash-end-date">
+                            </div>
+                            <button type="submit" class="btn btn-success">计算砸盘系数</button>
+                        </form>
+                        <div id="smash-result" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 图表展示 -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="chart-container">
+                    <h5>市场情绪分析 - 砸盘系数 vs 挣钱效应</h5>
+                    <div id="line-chart-container">
+                        <div class="loading">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">生成图表中...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="loadLineChart()" class="btn btn-outline-primary btn-sm mt-2">刷新图表</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="chart-container">
+                    <h5>连板公司分布矩阵</h5>
+                    <div id="matrix-chart-container">
+                        <div class="loading">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">生成图表中...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="loadMatrixChart()" class="btn btn-outline-primary btn-sm mt-2">刷新矩阵</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 设置默认日期
+        function setDefaultDates() {
+            const today = new Date();
+            const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+            document.getElementById('start-date').value = oneWeekAgo.toISOString().split('T')[0];
+            document.getElementById('end-date').value = today.toISOString().split('T')[0];
+            document.getElementById('smash-start-date').value = oneWeekAgo.toISOString().split('T')[0];
+            document.getElementById('smash-end-date').value = today.toISOString().split('T')[0];
+        }
+
+        // 加载平台状态
+        async function loadStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const statusInfo = document.getElementById('status-info');
+                    statusInfo.innerHTML = `
+                        <div class="row">
+                            <div class="col-md-3"><strong>涨停数据总量:</strong> ${data.data['涨停数据总量'] || 0}</div>
+                            <div class="col-md-3"><strong>交易日期数:</strong> ${data.data['交易日期数'] || 0}</div>
+                            <div class="col-md-3"><strong>涉及股票数:</strong> ${data.data['涉及股票数'] || 0}</div>
+                            <div class="col-md-3"><strong>最新数据日期:</strong> ${data.data['最新数据日期'] || '无'}</div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载状态失败:', error);
+            }
+        }
+
+        // 加载折线图
+        async function loadLineChart() {
+            const container = document.getElementById('line-chart-container');
+            container.innerHTML = '<div class="loading"><div class="spinner-border"></div></div>';
+
+            try {
+                const response = await fetch('/api/line_chart');
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    container.innerHTML = `<img src="data:image/png;base64,${data.image}" class="img-fluid" alt="砸盘系数图表">`;
+                } else {
+                    container.innerHTML = `<div class="alert alert-warning">${data.message}</div>`;
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="alert alert-danger">加载图表失败: ${error.message}</div>`;
+            }
+        }
+
+        // 加载矩阵图
+        async function loadMatrixChart() {
+            const container = document.getElementById('matrix-chart-container');
+            container.innerHTML = '<div class="loading"><div class="spinner-border"></div></div>';
+
+            try {
+                const response = await fetch('/api/matrix_chart');
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    container.innerHTML = `<img src="data:image/png;base64,${data.image}" class="img-fluid" alt="连板矩阵图表">`;
+                } else {
+                    container.innerHTML = `<div class="alert alert-warning">${data.message}</div>`;
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="alert alert-danger">加载矩阵图失败: ${error.message}</div>`;
+            }
+        }
+
+        // 事件监听
+        document.getElementById('update-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const resultDiv = document.getElementById('update-result');
+            resultDiv.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> 更新中...';
+
+            const formData = {
+                start_date: document.getElementById('start-date').value.replace(/-/g, ''),
+                end_date: document.getElementById('end-date').value.replace(/-/g, '')
+            };
+
+            try {
+                const response = await fetch('/api/update_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                    loadStatus(); // 刷新状态
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-danger">请求失败: ${error.message}</div>`;
+            }
+        });
+
+        document.getElementById('smash-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const resultDiv = document.getElementById('smash-result');
+            resultDiv.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> 计算中...';
+
+            const formData = {
+                start_date: document.getElementById('smash-start-date').value,
+                end_date: document.getElementById('smash-end-date').value
+            };
+
+            try {
+                const response = await fetch('/api/calculate_smash', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                    loadLineChart(); // 刷新图表
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-danger">请求失败: ${error.message}</div>`;
+            }
+        });
+
+        // 初始化
+        setDefaultDates();
+        loadStatus();
+        loadLineChart();
+        loadMatrixChart();
+    </script>
+</body>
+</html>
