@@ -1,0 +1,6 @@
+Flask==2.3.3
+pandas==2.0.3
+akshare==1.8.0
+matplotlib==3.7.2
+openpyxl==3.1.2
+gunicorn==21.2.0
